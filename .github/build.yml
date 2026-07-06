@@ -1,0 +1,31 @@
+name: Build RTL8723BE Kext
+
+# Define quando a Action vai rodar
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Permite rodar o script manualmente clicando num botão
+
+jobs:
+  build:
+    # Usa a nuvem da Apple para compilar
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout do Repositório
+      uses: actions/checkout@v4
+
+    - name: Compilar a Kext com Make
+      run: |
+        # Configura os caminhos do SDK que o seu Makefile precisa
+        export MAC_KERNEL_SDK=$GITHUB_WORKSPACE/MacOSX10.15.sdk
+        export LEGACY_SDK=$GITHUB_WORKSPACE/MacOSX10.15.sdk
+        make
+
+    - name: Salvar Kext (Upload Artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: RTL8723BE-Kext
+        path: RTL8723BE.kext
