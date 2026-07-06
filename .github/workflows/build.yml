@@ -1,8 +1,4 @@
 name: Build Kext RTL8723BE
-- name: Compilar Kext usando o Makefile
-        run: |
-          make clean
-          make
 
 on:
   push:
@@ -26,6 +22,15 @@ jobs:
         tar -xf MacOSX10.15.sdk.tar.xz
         echo "LEGACY_SDK=$(pwd)/MacOSX10.15.sdk" >> $GITHUB_ENV
 
+    - name: Baixar Headers Privados de Wi-Fi (Apple80211)
+      run: |
+        echo "Baixando arquivos de suporte para Wi-Fi Nativo..."
+        mkdir -p Apple80211/IOKit/network
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o Apple80211/IOKit/network/IO80211VirtualInterface.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o Apple80211/IOKit/network/apple80211_var.h
+
     - name: Gerar Makefile Dinâmico
       run: |
         cat << 'EOF' > Makefile
@@ -40,7 +45,7 @@ jobs:
                    -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers \
                    -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
                    -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network \
-                   -I$(LEGACY_SDK)/System/Library/Extensions/IONetworkingFamily.kext/Contents/Headers
+                   -I./Apple80211
         
         LDFLAGS = -Xlinker -kext -nostdlib -lkmod -lkmodc++ -lcc_kext -arch x86_64
         
@@ -59,7 +64,7 @@ jobs:
         	$(CXX) $(CXXFLAGS) -c $< -o $@
         
         clean:
-        	@rm -rf *.o $(KEXT_BUNDLE)
+        	@rm -rf *.o $(KEXT_BUNDLE) Apple80211
         EOF
 
     - name: Compilar a Kext
