@@ -6,7 +6,7 @@ KERNEL_HEADERS = $(SDK)/System/Library/Frameworks/Kernel.framework/Headers
 
 CFLAGS = -mkernel -std=c++14 -fno-builtin -fno-exceptions -fno-rtti -nostdinc -Wall -Wextra
 
-# Adicionamos uma pasta local (Apple80211) para os headers baixados
+# Aqui está a mágica: a flag -I./Apple80211
 INCLUDES = -I$(KERNEL_HEADERS) \
            -I$(KERNEL_HEADERS)/bsd \
            -I$(KERNEL_HEADERS)/IOKit \
@@ -16,11 +16,11 @@ INCLUDES = -I$(KERNEL_HEADERS) \
 SRC = RTL8723BE.cpp
 OBJ = RTL8723BE.o
 
+# A regra 'all' garante que a pasta prepare baixe os arquivos ANTES de compilar
 all: prepare $(OBJ)
 
-# Este comando baixa os headers privados de Wi-Fi da Apple necessários para compilar
 prepare:
-	@echo "Baixando Headers do IO80211Family..."
+	@echo "Baixando Headers Privados de Wi-Fi da Apple..."
 	@mkdir -p Apple80211/IOKit/network
 	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
 	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
