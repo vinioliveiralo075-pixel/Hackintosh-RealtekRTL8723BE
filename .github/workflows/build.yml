@@ -1,31 +1,82 @@
-name: Build RTL8723BE Kext
+name: Build Kext RTL8723BE
 
-# Define quando a Action vai rodar
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch: # Permite rodar o script manualmente clicando num botão
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    # Usa a nuvem da Apple para compilar
+    name: Compilar RTL8723BE (SDK 10.15)
     runs-on: macos-latest
 
     steps:
-    - name: Checkout do Repositório
+    - name: Checkout do Código
       uses: actions/checkout@v4
 
-    - name: Compilar a Kext com Make
+    - name: Baixar o SDK Original do macOS 10.15
       run: |
-        # Configura os caminhos do SDK que o seu Makefile precisa
-        export MAC_KERNEL_SDK=$GITHUB_WORKSPACE/MacOSX10.15.sdk
-        export LEGACY_SDK=$GITHUB_WORKSPACE/MacOSX10.15.sdk
+        wget https://github.com/joseluisq/macosx-sdks/releases/download/10.15/MacOSX10.15.sdk.tar.xz
+        tar -xf MacOSX10.15.sdk.tar.xz
+        echo "LEGACY_SDK=$(pwd)/MacOSX10.15.sdk" >> $GITHUB_ENV
+
+    - name: Gerar Makefile Dinâmico
+      run: |
+        cat << 'EOF' > Makefile
+        MODULE_NAME = RTL8723BE
+        KEXT_BUNDLE = $(MODULE_NAME).kext
+        
+        CXX = clang++
+        
+        CXXFLAGS = -mkernel -arch x86_64 -Wall -Wextra -std=c++14 \
+                   -fno-builtin -fno-exceptions -fno-rtti \
+                   -nostdinc -isysroot $(LEGACY_SDK) \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network \
+                   -I$(LEGACY_SDK)/System/Library/Extensions/IONetworkingFamily.kext/Contents/Headers
+        
+        LDFLAGS = -Xlinker -kext -nostdlib -lkmod -lkmodc++ -lcc_kext -arch x86_64
+        
+        SRCS = RTL8723BE.cpp
+        OBJS = $(SRCS:.cpp=.o)
+        
+        all: $(KEXT_BUNDLE)
+        
+        $(KEXT_BUNDLE): $(OBJS)
+        	@mkdir -p $(KEXT_BUNDLE)/Contents/MacOS
+        	$(CXX) $(LDFLAGS) $(OBJS) -o $(KEXT_BUNDLE)/Contents/MacOS/$(MODULE_NAME)
+        	@cp Info.plist $(KEXT_BUNDLE)/Contents/Info.plist
+        	@echo "SUCESSO! Kext compilada."
+        
+        %.o: %.cpp
+        	$(CXX) $(CXXFLAGS) -c $< -o $@
+        
+        clean:
+        	@rm -rf *.o $(KEXT_BUNDLE)
+        EOF
+
+    - name: Compilar a Kext
+      run: |
+        make clean
         make
 
-    - name: Salvar Kext (Upload Artifact)
+    - name: Validação de Arquitetura (x86_64)
+      run: |
+        lipo -info RTL8723BE.kext/Contents/MacOS/RTL8723BE
+        if ! lipo -info RTL8723BE.kext/Contents/MacOS/RTL8723BE | grep -q "x86_64"; then
+          echo "❌ ERRO: O binário gerado não é x86_64!"
+          exit 1
+        fi
+
+    - name: Empacotar a Kext
+      run: ditto -c -k --sequesterRsrc --keepParent RTL8723BE.kext RTL8723BE_Mac_Catalina_SDK.zip
+
+    - name: Upload do Artefato
       uses: actions/upload-artifact@v4
       with:
-        name: RTL8723BE-Kext
-        path: RTL8723BE.kext
+        name: RTL8723BE-Kext-Pronta
+        path: RTL8723BE_Mac_Catalina_SDK.zip
+        retention-days: 5
