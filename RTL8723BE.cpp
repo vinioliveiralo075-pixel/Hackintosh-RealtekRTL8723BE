@@ -76,5 +76,5 @@ UInt32 RTL8723BE::outputPacket(mbuf_t m, void *param) {
 }
 
 IO80211VirtualInterface* RTL8723BE::createVirtualInterface(ether_addr *ether, UInt role) {
-    return NULL; // O Kernel inicializa a interface posteriormente
+    return NULL; 
 }
