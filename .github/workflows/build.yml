@@ -1,4 +1,8 @@
 name: Build Kext RTL8723BE
+- name: Compilar Kext usando o Makefile
+        run: |
+          make clean
+          make
 
 on:
   push:
