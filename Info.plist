@@ -25,7 +25,7 @@
             <key>CFBundleIdentifier</key>
             <string>com.vini.driver.RTL8723BE</string>
             <key>IOClass</key>
-            <string>com_vini_driver_RTL8723BE</string>
+            <string>AirportRtl8723be</string>
             <key>IOPCIClassMatch</key>
             <string>0x02800000&amp;0xffff0000</string>
             <key>IOPCIMatch</key>
@@ -36,16 +36,18 @@
     </dict>
     <key>OSBundleLibraries</key>
     <dict>
+        <key>com.apple.iokit.IO80211Family</key>
+        <string>1.0.0</string>
         <key>com.apple.iokit.IONetworkingFamily</key>
-        <string>3.2</string>
+        <string>1.0.0</string>
         <key>com.apple.iokit.IOPCIFamily</key>
-        <string>2.9</string>
+        <string>1.0.0</string>
         <key>com.apple.kpi.iokit</key>
-        <string>16.0.0</string>
+        <string>8.0.0</string>
         <key>com.apple.kpi.libkern</key>
-        <string>16.0.0</string>
+        <string>8.0.0</string>
         <key>com.apple.kpi.mach</key>
-        <string>16.0.0</string>
+        <string>8.0.0</string>
     </dict>
 </dict>
 </plist>
