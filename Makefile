@@ -22,14 +22,15 @@ jobs:
         tar -xf MacOSX10.15.sdk.tar.xz
         echo "LEGACY_SDK=$(pwd)/MacOSX10.15.sdk" >> $GITHUB_ENV
 
-    - name: Baixar Headers Privados de Wi-Fi (Apple80211)
+    - name: Injetar Headers de Wi-Fi no SDK da Apple
       run: |
-        echo "Baixando arquivos de suporte para Wi-Fi Nativo..."
-        mkdir -p Apple80211/IOKit/network
-        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
-        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
-        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o Apple80211/IOKit/network/IO80211VirtualInterface.h
-        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o Apple80211/IOKit/network/apple80211_var.h
+        echo "Injetando arquivos de Wi-Fi nativo direto na estrutura do SDK..."
+        TARGET_DIR="MacOSX10.15.sdk/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network"
+        mkdir -p "$TARGET_DIR"
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o "$TARGET_DIR/IO80211Controller.h"
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o "$TARGET_DIR/IO80211Interface.h"
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o "$TARGET_DIR/IO80211VirtualInterface.h"
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o "$TARGET_DIR/apple80211_var.h"
 
     - name: Gerar Makefile Dinâmico
       run: |
@@ -44,8 +45,7 @@ jobs:
                    -nostdinc -isysroot $(LEGACY_SDK) \
                    -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers \
                    -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
-                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network \
-                   -I./Apple80211
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network
         
         LDFLAGS = -Xlinker -kext -nostdlib -lkmod -lkmodc++ -lcc_kext -arch x86_64
         
@@ -68,6 +68,10 @@ jobs:
         EOF
 
     - name: Compilar a Kext
+      run: |
+        make clean
+        
+    - name: Executar Compilação Real
       run: |
         make
 
