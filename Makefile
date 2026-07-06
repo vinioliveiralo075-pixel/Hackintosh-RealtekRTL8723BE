@@ -1,33 +1,90 @@
-# Makefile otimizado para RTL8723BE Native Wi-Fi
-CC = clang++
-ARCH = -arch x86_64
-SDK = /Users/runner/work/Hackintosh-RealtekRTL8723BE/Hackintosh-RealtekRTL8723BE/MacOSX10.15.sdk
-KERNEL_HEADERS = $(SDK)/System/Library/Frameworks/Kernel.framework/Headers
+name: Build Kext RTL8723BE
 
-CFLAGS = -mkernel -std=c++14 -fno-builtin -fno-exceptions -fno-rtti -nostdinc -Wall -Wextra
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
-INCLUDES = -I$(KERNEL_HEADERS) \
-           -I$(KERNEL_HEADERS)/bsd \
-           -I$(KERNEL_HEADERS)/IOKit \
-           -I$(KERNEL_HEADERS)/libkern \
-           -I./Apple80211
+jobs:
+  build:
+    name: Compilar RTL8723BE (SDK 10.15)
+    runs-on: macos-latest
 
-SRC = RTL8723BE.cpp
-OBJ = RTL8723BE.o
+    steps:
+    - name: Checkout do Código
+      uses: actions/checkout@v4
 
-all: prepare $(OBJ)
+    - name: Baixar o SDK Original do macOS 10.15
+      run: |
+        wget https://github.com/joseluisq/macosx-sdks/releases/download/10.15/MacOSX10.15.sdk.tar.xz
+        tar -xf MacOSX10.15.sdk.tar.xz
+        echo "LEGACY_SDK=$(pwd)/MacOSX10.15.sdk" >> $GITHUB_ENV
 
-prepare:
-	@echo "Baixando Headers Privados de Wi-Fi da Apple..."
-	@mkdir -p Apple80211/IOKit/network
-	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
-	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
-	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o Apple80211/IOKit/network/IO80211VirtualInterface.h
-	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o Apple80211/IOKit/network/apple80211_var.h
+    - name: Baixar Headers Privados de Wi-Fi (Apple80211)
+      run: |
+        echo "Baixando arquivos de suporte para Wi-Fi Nativo..."
+        mkdir -p Apple80211/IOKit/network
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o Apple80211/IOKit/network/IO80211VirtualInterface.h
+        curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o Apple80211/IOKit/network/apple80211_var.h
 
-$(OBJ): $(SRC)
-	$(CC) $(ARCH) $(CFLAGS) $(INCLUDES) -c $(SRC) -o $(OBJ)
+    - name: Gerar Makefile Dinâmico
+      run: |
+        cat << 'EOF' > Makefile
+        MODULE_NAME = RTL8723BE
+        KEXT_BUNDLE = $(MODULE_NAME).kext
+        
+        CXX = clang++
+        
+        CXXFLAGS = -mkernel -arch x86_64 -Wall -Wextra -std=c++14 \
+                   -fno-builtin -fno-exceptions -fno-rtti \
+                   -nostdinc -isysroot $(LEGACY_SDK) \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
+                   -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network \
+                   -I./Apple80211
+        
+        LDFLAGS = -Xlinker -kext -nostdlib -lkmod -lkmodc++ -lcc_kext -arch x86_64
+        
+        SRCS = RTL8723BE.cpp
+        OBJS = $(SRCS:.cpp=.o)
+        
+        all: $(KEXT_BUNDLE)
+        
+        $(KEXT_BUNDLE): $(OBJS)
+        	@mkdir -p $(KEXT_BUNDLE)/Contents/MacOS
+        	$(CXX) $(LDFLAGS) $(OBJS) -o $(KEXT_BUNDLE)/Contents/MacOS/$(MODULE_NAME)
+        	@cp Info.plist $(KEXT_BUNDLE)/Contents/Info.plist
+        	@echo "SUCESSO! Kext compilada."
+        
+        %.o: %.cpp
+        	$(CXX) $(CXXFLAGS) -c $< -o $@
+        
+        clean:
+        	@rm -rf *.o $(KEXT_BUNDLE)
+        EOF
 
-clean:
-	rm -f *.o
-	rm -rf Apple80211
+    - name: Compilar a Kext
+      run: |
+        make
+
+    - name: Validação de Arquitetura (x86_64)
+      run: |
+        lipo -info RTL8723BE.kext/Contents/MacOS/RTL8723BE
+        if ! lipo -info RTL8723BE.kext/Contents/MacOS/RTL8723BE | grep -q "x86_64"; then
+          echo "❌ ERRO: O binário gerado não é x86_64!"
+          exit 1
+        fi
+
+    - name: Empacotar a Kext
+      run: ditto -c -k --sequesterRsrc --keepParent RTL8723BE.kext RTL8723BE_Mac_Catalina_SDK.zip
+
+    - name: Upload do Artefato
+      uses: actions/upload-artifact@v4
+      with:
+        name: RTL8723BE-Kext-Pronta
+        path: RTL8723BE_Mac_Catalina_SDK.zip
+        retention-days: 5
