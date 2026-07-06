@@ -15,7 +15,6 @@ public:
     virtual void stop(IOService *provider) override;
     virtual void free() override;
 
-    // Ações para o CommandGate (Retornando IOReturn para não dar Panic)
     static IOReturn actionSetPowerOff(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     static IOReturn actionSetPowerOn(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 
@@ -26,7 +25,6 @@ protected:
     IOPCIDevice *pciDevice;
     IOCommandGate *_fCommandGate;
     
-    // Gerenciamento de Energia
     virtual IOReturn setPowerState(unsigned long powerStateOrdinal, IOService *policyMaker) override;
     void setPowerStateOff();
     void setPowerStateOn();
