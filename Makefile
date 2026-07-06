@@ -1,37 +1,35 @@
-MODULE_NAME = RTL8723BE
-KEXT_BUNDLE = $(MODULE_NAME).kext
-BUNDLE_ID = com.vini.driver.RTL8723BE
+# Makefile otimizado para RTL8723BE Native Wi-Fi
+CC = clang++
+ARCH = -arch x86_64
+SDK = /Users/runner/work/Hackintosh-RealtekRTL8723BE/Hackintosh-RealtekRTL8723BE/MacOSX10.15.sdk
+KERNEL_HEADERS = $(SDK)/System/Library/Frameworks/Kernel.framework/Headers
 
-CXX = clang++
+CFLAGS = -mkernel -std=c++14 -fno-builtin -fno-exceptions -fno-rtti -nostdinc -Wall -Wextra
 
-# Removemos o $(shell xcrun --show-sdk-path) para não usar o SDK da Apple
-# Agora esperamos que a variável MAC_KERNEL_SDK seja passada via ambiente
-SDKROOT ?= $(MAC_KERNEL_SDK)
+# Adicionamos uma pasta local (Apple80211) para os headers baixados
+INCLUDES = -I$(KERNEL_HEADERS) \
+           -I$(KERNEL_HEADERS)/bsd \
+           -I$(KERNEL_HEADERS)/IOKit \
+           -I$(KERNEL_HEADERS)/libkern \
+           -I./Apple80211
 
-CXXFLAGS = -mkernel -arch x86_64 -Wall -Wextra -std=c++14 \
-           -DKERNEL=1 -DKERNEL_PRIVATE=1 \
-           -fno-builtin -fno-exceptions -fno-rtti \
-           -nostdinc -isysroot $(LEGACY_SDK) \
-           -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers \
-           -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/bsd \
-           -I$(LEGACY_SDK)/System/Library/Frameworks/Kernel.framework/Headers/IOKit/network \
-           -I$(LEGACY_SDK)/System/Library/Extensions/IONetworkingFamily.kext/Contents/Headers
+SRC = RTL8723BE.cpp
+OBJ = RTL8723BE.o
 
-LDFLAGS = -Xlinker -kext -nostdlib -lkmod -lkmodc++ -lcc_kext
+all: prepare $(OBJ)
 
-SRCS = RTL8723BE.cpp
-OBJS = $(SRCS:.cpp=.o)
+# Este comando baixa os headers privados de Wi-Fi da Apple necessários para compilar
+prepare:
+	@echo "Baixando Headers do IO80211Family..."
+	@mkdir -p Apple80211/IOKit/network
+	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Controller.h -o Apple80211/IOKit/network/IO80211Controller.h
+	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211Interface.h -o Apple80211/IOKit/network/IO80211Interface.h
+	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/IO80211VirtualInterface.h -o Apple80211/IOKit/network/IO80211VirtualInterface.h
+	@curl -sL https://raw.githubusercontent.com/OpenIntelWireless/itlwm/master/Dependencies/Apple80211/apple80211_var.h -o Apple80211/IOKit/network/apple80211_var.h
 
-all: $(KEXT_BUNDLE)
-
-$(KEXT_BUNDLE): $(OBJS)
-	@mkdir -p $(KEXT_BUNDLE)/Contents/MacOS
-	$(CXX) $(LDFLAGS) $(OBJS) -o $(KEXT_BUNDLE)/Contents/MacOS/$(MODULE_NAME)
-	@cp Info.plist $(KEXT_BUNDLE)/Contents/Info.plist
-	@echo "SUCESSO! Kext compilada."
-
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(OBJ): $(SRC)
+	$(CC) $(ARCH) $(CFLAGS) $(INCLUDES) -c $(SRC) -o $(OBJ)
 
 clean:
-	@rm -rf *.o $(KEXT_BUNDLE)
+	rm -f *.o
+	rm -rf Apple80211
